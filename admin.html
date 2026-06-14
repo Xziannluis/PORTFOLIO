@@ -1,0 +1,91 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Admin | XZIANN CODE</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body class="admin-body">
+    <main class="admin-shell">
+      <section class="admin-hero">
+        <a class="brand admin-brand" href="index.html" aria-label="Back to portfolio">
+          <span class="brand-mark">XZ</span>
+          <span>
+            <strong>XZIANN CODE</strong>
+            <small>Portfolio Admin</small>
+          </span>
+        </a>
+        <a class="btn secondary" href="index.html">View portfolio</a>
+      </section>
+
+      <section class="admin-login" id="admin-login">
+        <div class="admin-panel">
+          <p class="section-kicker">Admin account</p>
+          <h1>Sign in to manage projects.</h1>
+        
+
+          <form id="login-form" class="admin-form">
+            <label>
+              <span>Username</span>
+              <input type="text" name="username" autocomplete="username" required />
+            </label>
+            <label>
+              <span>Password</span>
+              <input type="password" name="password" autocomplete="current-password" required />
+            </label>
+            <button class="btn primary" type="submit">Login</button>
+            <p class="form-status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+
+      <section class="admin-dashboard is-hidden" id="admin-dashboard">
+        <div class="admin-heading">
+          <div>
+            <p class="section-kicker">Project manager</p>
+            <h1>Add or remove portfolio projects.</h1>
+          </div>
+          <button class="btn secondary" type="button" id="logout-button">Logout</button>
+        </div>
+
+        <div class="admin-layout">
+          <form id="project-form" class="admin-form admin-panel">
+            <h2>Add project</h2>
+            <label>
+              <span>Project title</span>
+              <input type="text" name="title" placeholder="Example: Library System" required />
+            </label>
+            <label>
+              <span>Description</span>
+              <textarea name="description" rows="4" placeholder="Short project summary" required></textarea>
+            </label>
+            <label>
+              <span>Categories</span>
+              <input type="text" name="categories" placeholder="web, database, ui" required />
+            </label>
+            <label>
+              <span>Tags</span>
+              <input type="text" name="tags" placeholder="PHP, MySQL, JavaScript" required />
+            </label>
+            <button class="btn primary" type="submit">Add project</button>
+            <button class="btn secondary" type="button" id="reset-projects">Reset defaults</button>
+          </form>
+
+          <div class="admin-panel">
+            <h2>Current projects</h2>
+            <div class="admin-project-list" id="admin-project-list"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script src="admin.js"></script>
+  </body>
+</html>

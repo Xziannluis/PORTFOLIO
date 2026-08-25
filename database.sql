@@ -19,8 +19,8 @@ CREATE TABLE IF NOT EXISTS projects (
 );
 
 INSERT INTO admins (username, password_hash)
-VALUES ('admin', '$2y$10$Yb6Wo6Y6Dut8TVbWhiPlvOg2xxt3ZzrowLS/iDA5aBA.OxNETGiNC')
-ON DUPLICATE KEY UPDATE username = VALUES(username);
+VALUES ('admin', '$2y$10$RYw6GDSUiV9CxZQrWd3xb.pTzFQRnZFEqptPzBZg2/f502sf.MEhq')
+ON DUPLICATE KEY UPDATE password_hash = VALUES(password_hash);
 
 INSERT INTO projects (title, description, categories, tags, sort_order)
 SELECT * FROM (

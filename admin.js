@@ -38,7 +38,7 @@ const setLoggedIn = async (isLoggedIn) => {
 };
 
 const getProjects = async () => {
-  const payload = await apiRequest("api/projects.php");
+  const payload = await apiRequest("/api/projects");
   return payload.projects;
 };
 
@@ -69,7 +69,7 @@ const renderProjects = async () => {
       )
       .join("");
   } catch (error) {
-    projectList.innerHTML = `<p class="admin-empty">Projects could not load. Import the database first.</p>`;
+    projectList.innerHTML = `<p class="admin-empty">Projects could not load. Please try again shortly.</p>`;
   }
 };
 
@@ -79,7 +79,7 @@ loginForm.addEventListener("submit", async (event) => {
   const status = loginForm.querySelector(".form-status");
 
   try {
-    await apiRequest("api/login.php", {
+    await apiRequest("/api/login", {
       method: "POST",
       body: JSON.stringify({
         username: formData.get("username"),
@@ -100,7 +100,7 @@ projectForm.addEventListener("submit", async (event) => {
   const categories = normalizeList(formData.get("categories").toLowerCase());
   const tags = normalizeList(formData.get("tags"));
 
-  await apiRequest("api/create_project.php", {
+  await apiRequest("/api/projects/create", {
     method: "POST",
     body: JSON.stringify({
       title: formData.get("title").trim(),
@@ -118,7 +118,7 @@ projectList.addEventListener("click", async (event) => {
   const button = event.target.closest("[data-delete]");
   if (!button) return;
 
-  await apiRequest("api/delete_project.php", {
+  await apiRequest("/api/projects/delete", {
     method: "POST",
     body: JSON.stringify({ id: Number(button.dataset.delete) }),
   });
@@ -127,18 +127,18 @@ projectList.addEventListener("click", async (event) => {
 });
 
 resetButton.addEventListener("click", async () => {
-  await apiRequest("api/reset_projects.php", { method: "POST", body: "{}" });
+  await apiRequest("/api/projects/reset", { method: "POST", body: "{}" });
   await renderProjects();
 });
 
 logoutButton.addEventListener("click", async () => {
-  await apiRequest("api/logout.php", { method: "POST", body: "{}" });
+  await apiRequest("/api/logout", { method: "POST", body: "{}" });
   await setLoggedIn(false);
 });
 
 (async () => {
   try {
-    const payload = await apiRequest("api/session.php");
+    const payload = await apiRequest("/api/session");
     await setLoggedIn(payload.loggedIn);
   } catch {
     await setLoggedIn(false);

@@ -1,0 +1,14 @@
+{
+  "name": "xziannportfolio",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@netlify/blobs": "latest",
+    "@netlify/functions": "latest",
+    "bcryptjs": "latest"
+  },
+  "devDependencies": {
+    "@types/node": "^26.3.0",
+    "typescript": "latest"
+  }
+}

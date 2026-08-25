@@ -61,7 +61,7 @@ const observeCounters = () => {
 };
 
 const fetchProjects = async () => {
-  const response = await fetch("api/projects.php", { credentials: "same-origin" });
+  const response = await fetch("/api/projects", { credentials: "same-origin" });
   const payload = await response.json();
   if (!payload.ok) throw new Error(payload.message || "Unable to load projects.");
   return payload.projects;
@@ -108,7 +108,7 @@ const renderProjects = async () => {
     observeReveals();
     observeCounters();
   } catch (error) {
-    projectGrid.innerHTML = `<p class="admin-empty">Projects could not load. Import the database first.</p>`;
+    projectGrid.innerHTML = `<p class="admin-empty">Projects could not load. Please try again shortly.</p>`;
   }
 };
 

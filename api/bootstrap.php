@@ -10,10 +10,33 @@ session_start();
 
 header('Content-Type: application/json; charset=utf-8');
 
-const DB_HOST = '127.0.0.1';
-const DB_NAME = 'portfolio_db';
-const DB_USER = 'root';
-const DB_PASS = '';
+// --- tiny .env loader (no composer needed) ---
+// Put a file named ".env" next to this one (same folder as bootstrap.php,
+// or adjust the path below), and make sure ".env" is in .gitignore.
+function load_env(string $path): void
+{
+    if (!is_file($path)) {
+        return;
+    }
+    foreach (file($path, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES) as $line) {
+        if (str_starts_with(trim($line), '#') || !str_contains($line, '=')) {
+            continue;
+        }
+        [$key, $value] = explode('=', $line, 2);
+        $key = trim($key);
+        $value = trim($value, " \t\n\r\0\x0B\"'");
+        if (getenv($key) === false) {
+            putenv("$key=$value");
+        }
+    }
+}
+
+load_env(__DIR__ . '/.env');
+
+const DB_HOST = null; // unused now, kept only so old references don't fatal-error
+const DB_NAME = null;
+const DB_USER = null;
+const DB_PASS = null;
 
 function json_response(array $payload, int $status = 200): void
 {
@@ -30,8 +53,23 @@ function db(): PDO
         return $pdo;
     }
 
-    $dsn = 'mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4';
-    $pdo = new PDO($dsn, DB_USER, DB_PASS, [
+    // Get this from your Neon dashboard -> "Connection string" tab.
+    // Store it in api/.env as:
+    // NEON_DATABASE_URL=postgresql://neondb_owner:PASSWORD@ep-shiny-grass-ax2ae9ad-pooler.c-4.us-east-2.aws.neon.tech/neondb?sslmode=require
+    $url = getenv('NEON_DATABASE_URL');
+    if ($url === false || $url === '') {
+        json_response(['ok' => false, 'message' => 'Database not configured (missing NEON_DATABASE_URL).'], 500);
+    }
+
+    $parts = parse_url($url);
+    $dsn = sprintf(
+        'pgsql:host=%s;port=%s;dbname=%s;sslmode=require',
+        $parts['host'],
+        $parts['port'] ?? 5432,
+        ltrim($parts['path'], '/')
+    );
+
+    $pdo = new PDO($dsn, $parts['user'], $parts['pass'] ?? '', [
         PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
         PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC,
     ]);

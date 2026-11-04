@@ -4,42 +4,42 @@
 
 [[redirects]]
   from = "/api/login.php"
-  to = "/.netlify/functions/admin-api?endpoint=login"
+  to = "/.netlify/functions/admin-login"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api/logout.php"
-  to = "/.netlify/functions/admin-api?endpoint=logout"
+  to = "/.netlify/functions/admin-logout"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api/session.php"
-  to = "/.netlify/functions/admin-api?endpoint=session"
+  to = "/.netlify/functions/admin-session"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api/projects.php"
-  to = "/.netlify/functions/admin-api?endpoint=projects"
+  to = "/.netlify/functions/admin-projects"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api/create_project.php"
-  to = "/.netlify/functions/admin-api?endpoint=create_project"
+  to = "/.netlify/functions/admin-create-project"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api/delete_project.php"
-  to = "/.netlify/functions/admin-api?endpoint=delete_project"
+  to = "/.netlify/functions/admin-delete-project"
   status = 200
   force = true
 
 [[redirects]]
   from = "/api/reset_projects.php"
-  to = "/.netlify/functions/admin-api?endpoint=reset_projects"
+  to = "/.netlify/functions/admin-reset-projects"
   status = 200
   force = true

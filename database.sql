@@ -50,5 +50,6 @@ FROM (
     'web',
     'React,Firebase,Auth',
     4
+  )
 ) AS seed(title, description, categories, tags, sort_order)
 WHERE NOT EXISTS (SELECT 1 FROM projects);

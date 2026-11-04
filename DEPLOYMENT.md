@@ -15,6 +15,12 @@ The existing `/api/*.php` URLs are rewritten to that function.
 4. Deploy the site again. Netlify installs the dependencies from `package.json`
    and publishes the function and rewrites.
 
+If the API reports a server error after deployment, open **Netlify > Functions >
+admin-login > Logs** and inspect the failed invocation. A missing environment
+variable is reported directly by the login form; database connection or schema
+errors are recorded in the function logs. After changing environment variables,
+redeploy so the function receives the updated values.
+
 The admin password is the one associated with the `admin` row in the database.
 If you do not know it, update `admins.password_hash` with a bcrypt hash generated
 for a new password before signing in. Generate a hash locally with

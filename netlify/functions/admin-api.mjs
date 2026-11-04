@@ -345,12 +345,41 @@ export const handler = async (event) => {
 
     return response({ ok: false, message: "API endpoint not found." }, 404);
   } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
     console.error(
       "Admin API request failed:",
-      error instanceof Error ? error.message : "Unknown error"
+      errorMessage
     );
+
+    if (errorMessage === "Missing NEON_DATABASE_URL.") {
+      return response(
+        {
+          ok: false,
+          message:
+            "Server setup incomplete: add NEON_DATABASE_URL in Netlify environment variables, then redeploy.",
+        },
+        500
+      );
+    }
+
+    if (errorMessage.startsWith("ADMIN_SESSION_SECRET")) {
+      return response(
+        {
+          ok: false,
+          message:
+            "Server setup incomplete: set ADMIN_SESSION_SECRET to a random value of at least 32 characters, then redeploy.",
+        },
+        500
+      );
+    }
+
     return response(
-      { ok: false, message: "The server could not complete the request." },
+      {
+        ok: false,
+        message:
+          "The server could not complete the request. Check the Netlify Function logs for the cause.",
+      },
       500
     );
   }

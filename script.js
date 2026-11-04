@@ -62,7 +62,23 @@ const observeCounters = () => {
 
 const fetchProjects = async () => {
   const response = await fetch("api/projects.php", { credentials: "same-origin" });
-  const payload = await response.json();
+  const body = await response.text();
+  let payload;
+
+  try {
+    payload = body ? JSON.parse(body) : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    throw new Error(
+      `The server returned an invalid response (HTTP ${response.status}). Check the API deployment.`
+    );
+  }
+  if (!response.ok) {
+    throw new Error(payload.message || `Request failed (HTTP ${response.status}).`);
+  }
   if (!payload.ok) throw new Error(payload.message || "Unable to load projects.");
   return payload.projects;
 };

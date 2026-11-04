@@ -20,15 +20,34 @@ const normalizeList = (value) =>
     .map((item) => item.trim())
     .filter(Boolean);
 
+const readApiResponse = async (response) => {
+  const body = await response.text();
+  let payload;
+
+  try {
+    payload = body ? JSON.parse(body) : null;
+  } catch {
+    payload = null;
+  }
+
+  if (!payload || typeof payload !== "object") {
+    throw new Error(
+      `The server returned an invalid response (HTTP ${response.status}). Check the API deployment.`
+    );
+  }
+  if (!response.ok || !payload.ok) {
+    throw new Error(payload.message || `Request failed (HTTP ${response.status}).`);
+  }
+  return payload;
+};
+
 const apiRequest = async (url, options = {}) => {
   const response = await fetch(url, {
     credentials: "same-origin",
     headers: { "Content-Type": "application/json", ...(options.headers || {}) },
     ...options,
   });
-  const payload = await response.json();
-  if (!response.ok || !payload.ok) throw new Error(payload.message || "Request failed.");
-  return payload;
+  return readApiResponse(response);
 };
 
 const setLoggedIn = async (isLoggedIn) => {

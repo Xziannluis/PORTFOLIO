@@ -1,3 +1,5 @@
 tmp_sessions/*
 !tmp_sessions/.gitkeep
 .history/
+api/.env
+node_modules/

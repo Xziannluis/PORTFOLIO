@@ -1,0 +1,45 @@
+[build]
+  publish = "."
+  functions = "netlify/functions"
+
+[[redirects]]
+  from = "/api/login.php"
+  to = "/.netlify/functions/admin-api?endpoint=login"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/logout.php"
+  to = "/.netlify/functions/admin-api?endpoint=logout"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/session.php"
+  to = "/.netlify/functions/admin-api?endpoint=session"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/projects.php"
+  to = "/.netlify/functions/admin-api?endpoint=projects"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/create_project.php"
+  to = "/.netlify/functions/admin-api?endpoint=create_project"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/delete_project.php"
+  to = "/.netlify/functions/admin-api?endpoint=delete_project"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/reset_projects.php"
+  to = "/.netlify/functions/admin-api?endpoint=reset_projects"
+  status = 200
+  force = true

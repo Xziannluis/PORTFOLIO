@@ -1,9 +1,14 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { neon } from "@neondatabase/serverless";
+import { getStore } from "@netlify/blobs";
 
 const COOKIE_NAME = "portfolio_admin";
 const SESSION_DURATION_SECONDS = 12 * 60 * 60;
+const MAX_PROJECT_IMAGE_BYTES = 3 * 1024 * 1024;
+const PROJECT_IMAGE_KEY_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp)$/;
+const getImageStore = () => getStore("portfolio-project-images");
 
 const defaultProjects = [
   [
@@ -144,7 +149,82 @@ const projectFromRow = (row) => ({
   description: row.description,
   categories: splitList(row.categories),
   tags: splitList(row.tags),
+  image_url: row.image_url || null,
 });
+
+const parseProjectImage = (image) => {
+  if (image == null) return null;
+  if (
+    typeof image !== "object" ||
+    typeof image.mimeType !== "string" ||
+    typeof image.base64 !== "string"
+  ) {
+    throw new Error("Choose a valid PNG, JPG, or WebP project image.");
+  }
+
+  const extensions = {
+    "image/png": "png",
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+  };
+  const extension = extensions[image.mimeType];
+  if (!extension) {
+    throw new Error("Project images must be PNG, JPG, or WebP.");
+  }
+  if (
+    !image.base64 ||
+    image.base64.length > Math.ceil(MAX_PROJECT_IMAGE_BYTES / 3) * 4 ||
+    !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(
+      image.base64
+    )
+  ) {
+    throw new Error("Project images must be 3 MB or smaller.");
+  }
+
+  const bytes = Buffer.from(image.base64, "base64");
+  if (
+    bytes.length === 0 ||
+    bytes.length > MAX_PROJECT_IMAGE_BYTES ||
+    bytes.toString("base64") !== image.base64
+  ) {
+    throw new Error("Project images must be valid files no larger than 3 MB.");
+  }
+
+  const isPng = bytes.subarray(0, 8).equals(
+    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a])
+  );
+  const isJpeg = bytes.length >= 3 && bytes.subarray(0, 3).equals(
+    Buffer.from([0xff, 0xd8, 0xff])
+  );
+  const isWebp =
+    bytes.length >= 12 &&
+    bytes.toString("ascii", 0, 4) === "RIFF" &&
+    bytes.toString("ascii", 8, 12) === "WEBP";
+  if (
+    (image.mimeType === "image/png" && !isPng) ||
+    (image.mimeType === "image/jpeg" && !isJpeg) ||
+    (image.mimeType === "image/webp" && !isWebp)
+  ) {
+    throw new Error("The selected file contents do not match its image type.");
+  }
+
+  return {
+    key: `${randomUUID()}.${extension}`,
+    mimeType: image.mimeType,
+    bytes,
+  };
+};
+
+const imageKeyFromUrl = (imageUrl) => {
+  if (typeof imageUrl !== "string") return null;
+  try {
+    const url = new URL(imageUrl, "https://portfolio.invalid");
+    const key = url.searchParams.get("key");
+    return key && PROJECT_IMAGE_KEY_PATTERN.test(key) ? key : null;
+  } catch {
+    return null;
+  }
+};
 
 const requirePost = (event) =>
   event.httpMethod === "POST"
@@ -169,6 +249,38 @@ export const handler = async (event) => {
   const endpoint = event.queryStringParameters?.endpoint;
 
   try {
+    if (endpoint === "project_image") {
+      if (event.httpMethod !== "GET") {
+        return response({ ok: false, message: "Method not allowed." }, 405, {
+          Allow: "GET",
+        });
+      }
+
+      const key = event.queryStringParameters?.key;
+      if (typeof key !== "string" || !PROJECT_IMAGE_KEY_PATTERN.test(key)) {
+        return response({ ok: false, message: "Project image not found." }, 404);
+      }
+      const data = await getImageStore().get(key, { type: "arrayBuffer" });
+      if (!data) {
+        return response({ ok: false, message: "Project image not found." }, 404);
+      }
+      const contentType = key.endsWith(".png")
+        ? "image/png"
+        : key.endsWith(".webp")
+          ? "image/webp"
+          : "image/jpeg";
+      return {
+        statusCode: 200,
+        headers: {
+          "Content-Type": contentType,
+          "Cache-Control": "public, max-age=31536000, immutable",
+          "X-Content-Type-Options": "nosniff",
+        },
+        body: Buffer.from(data).toString("base64"),
+        isBase64Encoded: true,
+      };
+    }
+
     if (endpoint === "projects") {
       if (event.httpMethod !== "GET") {
         return response({ ok: false, message: "Method not allowed." }, 405, {
@@ -178,7 +290,7 @@ export const handler = async (event) => {
 
       const sql = getSql();
       const rows = await sql`
-        SELECT id, title, description, categories, tags
+        SELECT id, title, description, categories, tags, image_url
         FROM projects
         ORDER BY sort_order ASC, id ASC
       `;
@@ -277,6 +389,7 @@ export const handler = async (event) => {
             .map((item) => item.trim())
             .filter(Boolean)
         : [];
+      let image;
 
       if (!title || !description) {
         return response(
@@ -285,23 +398,51 @@ export const handler = async (event) => {
         );
       }
 
+      try {
+        image = parseProjectImage(data.image);
+      } catch (error) {
+        return response(
+          { ok: false, message: error.message },
+          422
+        );
+      }
+
       const sql = getSql();
-      const [order] = await sql`
-        SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
-        FROM projects
-      `;
-      const [project] = await sql`
-        INSERT INTO projects (title, description, categories, tags, sort_order)
-        VALUES (
-          ${title},
-          ${description},
-          ${categories.length ? categories.join(",") : "web"},
-          ${tags.join(",")},
-          ${Number(order.next_order)}
-        )
-        RETURNING id
-      `;
-      return response({ ok: true, id: Number(project.id) });
+      const imageStore = image ? getImageStore() : null;
+      if (image) {
+        await imageStore.set(
+          image.key,
+          new Blob([image.bytes], { type: image.mimeType }),
+          { metadata: { contentType: image.mimeType } }
+        );
+      }
+
+      try {
+        const [order] = await sql`
+          SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
+          FROM projects
+        `;
+        const imageUrl = image
+          ? `/api/project-image.php?key=${encodeURIComponent(image.key)}`
+          : null;
+        const [project] = await sql`
+          INSERT INTO projects
+            (title, description, categories, tags, image_url, sort_order)
+          VALUES (
+            ${title},
+            ${description},
+            ${categories.length ? categories.join(",") : "web"},
+            ${tags.join(",")},
+            ${imageUrl},
+            ${Number(order.next_order)}
+          )
+          RETURNING id
+        `;
+        return response({ ok: true, id: Number(project.id) });
+      } catch (error) {
+        if (image) await imageStore.delete(image.key);
+        throw error;
+      }
     }
 
     if (endpoint === "delete_project") {
@@ -317,7 +458,67 @@ export const handler = async (event) => {
       }
 
       const sql = getSql();
+      const [project] = await sql`
+        SELECT image_url FROM projects WHERE id = ${id}
+      `;
       await sql`DELETE FROM projects WHERE id = ${id}`;
+      const imageKey = imageKeyFromUrl(project?.image_url);
+      if (imageKey) await getImageStore().delete(imageKey);
+      return response({ ok: true });
+    }
+
+    if (endpoint === "update_project_image") {
+      const methodError = requirePost(event);
+      if (methodError) return methodError;
+      const auth = requireAdmin(event);
+      if (auth.error) return auth.error;
+
+      const data = readBody(event);
+      const id = Number(data?.id);
+      if (!Number.isSafeInteger(id) || id <= 0) {
+        return response({ ok: false, message: "Valid project id is required." }, 422);
+      }
+
+      let image;
+      try {
+        image = parseProjectImage(data?.image);
+      } catch (error) {
+        return response({ ok: false, message: error.message }, 422);
+      }
+
+      const sql = getSql();
+      const [project] = await sql`
+        SELECT image_url FROM projects WHERE id = ${id}
+      `;
+      if (!project) {
+        return response({ ok: false, message: "Project not found." }, 404);
+      }
+
+      const imageStore = getImageStore();
+      const oldImageKey = imageKeyFromUrl(project.image_url);
+      if (image) {
+        await imageStore.set(
+          image.key,
+          new Blob([image.bytes], { type: image.mimeType }),
+          { metadata: { contentType: image.mimeType } }
+        );
+      }
+
+      try {
+        const imageUrl = image
+          ? `/api/project-image.php?key=${encodeURIComponent(image.key)}`
+          : null;
+        await sql`
+          UPDATE projects
+          SET image_url = ${imageUrl}
+          WHERE id = ${id}
+        `;
+      } catch (error) {
+        if (image) await imageStore.delete(image.key);
+        throw error;
+      }
+
+      if (oldImageKey) await imageStore.delete(oldImageKey);
       return response({ ok: true });
     }
 
@@ -328,6 +529,7 @@ export const handler = async (event) => {
       if (auth.error) return auth.error;
 
       const sql = getSql();
+      const oldProjects = await sql`SELECT image_url FROM projects`;
       await sql.transaction([
         sql`DELETE FROM projects`,
         ...defaultProjects.map(
@@ -340,6 +542,11 @@ export const handler = async (event) => {
             `
         ),
       ]);
+      const imageStore = getImageStore();
+      for (const project of oldProjects) {
+        const imageKey = imageKeyFromUrl(project.image_url);
+        if (imageKey) await imageStore.delete(imageKey);
+      }
       return response({ ok: true });
     }
 

@@ -3,8 +3,11 @@ const dashboard = document.querySelector("#admin-dashboard");
 const loginForm = document.querySelector("#login-form");
 const projectForm = document.querySelector("#project-form");
 const projectList = document.querySelector("#admin-project-list");
+const projectImageInput = document.querySelector("#project-image");
+const projectImagePreview = document.querySelector("#project-image-preview");
 const logoutButton = document.querySelector("#logout-button");
 const resetButton = document.querySelector("#reset-projects");
+let previewObjectUrl = null;
 
 const escapeHtml = (value) =>
   String(value)
@@ -19,6 +22,33 @@ const normalizeList = (value) =>
     .split(",")
     .map((item) => item.trim())
     .filter(Boolean);
+
+const imageToPayload = (file) =>
+  new Promise((resolve, reject) => {
+    if (file.size > 3 * 1024 * 1024) {
+      reject(new Error("Project images must be 3 MB or smaller."));
+      return;
+    }
+
+    if (!["image/png", "image/jpeg", "image/webp"].includes(file.type)) {
+      reject(new Error("Choose a PNG, JPG, or WebP image."));
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.addEventListener("load", () => {
+      const [, base64] = String(reader.result).split(",", 2);
+      if (!base64) {
+        reject(new Error("The selected image could not be read."));
+        return;
+      }
+      resolve({ mimeType: file.type, base64 });
+    });
+    reader.addEventListener("error", () =>
+      reject(new Error("The selected image could not be read."))
+    );
+    reader.readAsDataURL(file);
+  });
 
 const readApiResponse = async (response) => {
   const body = await response.text();
@@ -76,11 +106,21 @@ const renderProjects = async () => {
           <article class="admin-project-item">
             <div>
               <span>${String(index + 1).padStart(2, "0")}</span>
+              ${
+                project.image_url
+                  ? `<img class="admin-project-image" src="${escapeHtml(project.image_url)}" alt="${escapeHtml(project.title)} screenshot" />`
+                  : ""
+              }
               <h3>${escapeHtml(project.title)}</h3>
               <p>${escapeHtml(project.description)}</p>
               <div class="tags">
                 ${project.tags.map((tag) => `<span>${escapeHtml(tag)}</span>`).join("")}
               </div>
+              <label class="admin-project-image-upload">
+                <span>Upload or replace screenshot</span>
+                <input type="file" data-image-input="${project.id}" accept="image/png,image/jpeg,image/webp" />
+              </label>
+              <button class="btn secondary" type="button" data-image-save="${project.id}">Save screenshot</button>
             </div>
             <button class="btn danger" type="button" data-delete="${project.id}">Remove</button>
           </article>
@@ -88,7 +128,7 @@ const renderProjects = async () => {
       )
       .join("");
   } catch (error) {
-    projectList.innerHTML = `<p class="admin-empty">Projects could not load. Import the database first.</p>`;
+    projectList.innerHTML = `<p class="admin-empty">Projects could not load: ${escapeHtml(error.message)}</p>`;
   }
 };
 
@@ -118,31 +158,91 @@ projectForm.addEventListener("submit", async (event) => {
   const formData = new FormData(projectForm);
   const categories = normalizeList(formData.get("categories").toLowerCase());
   const tags = normalizeList(formData.get("tags"));
+  const status = projectForm.querySelector(".form-status");
+  const submitButton = projectForm.querySelector('button[type="submit"]');
 
-  await apiRequest("api/create_project.php", {
-    method: "POST",
-    body: JSON.stringify({
-      title: formData.get("title").trim(),
-      description: formData.get("description").trim(),
-      categories: categories.length ? categories : ["web"],
-      tags,
-    }),
-  });
+  try {
+    submitButton.disabled = true;
+    status.textContent = "Adding project...";
+    const imageFile = projectImageInput.files[0];
+    const image = imageFile ? await imageToPayload(imageFile) : null;
 
-  projectForm.reset();
-  await renderProjects();
+    await apiRequest("api/create_project.php", {
+      method: "POST",
+      body: JSON.stringify({
+        title: formData.get("title").trim(),
+        description: formData.get("description").trim(),
+        categories: categories.length ? categories : ["web"],
+        tags,
+        image,
+      }),
+    });
+
+    projectForm.reset();
+    if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+    previewObjectUrl = null;
+    projectImagePreview.removeAttribute("src");
+    projectImagePreview.classList.add("is-hidden");
+    status.textContent = "Project added.";
+    await renderProjects();
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    submitButton.disabled = false;
+  }
+});
+
+projectImageInput.addEventListener("change", () => {
+  const [file] = projectImageInput.files;
+  if (previewObjectUrl) URL.revokeObjectURL(previewObjectUrl);
+  previewObjectUrl = null;
+  projectImagePreview.classList.add("is-hidden");
+  projectImagePreview.removeAttribute("src");
+  if (!file) return;
+
+  previewObjectUrl = URL.createObjectURL(file);
+  projectImagePreview.src = previewObjectUrl;
+  projectImagePreview.classList.remove("is-hidden");
 });
 
 projectList.addEventListener("click", async (event) => {
-  const button = event.target.closest("[data-delete]");
-  if (!button) return;
+  const deleteButton = event.target.closest("[data-delete]");
+  if (deleteButton) {
+    await apiRequest("api/delete_project.php", {
+      method: "POST",
+      body: JSON.stringify({ id: Number(deleteButton.dataset.delete) }),
+    });
 
-  await apiRequest("api/delete_project.php", {
-    method: "POST",
-    body: JSON.stringify({ id: Number(button.dataset.delete) }),
-  });
+    await renderProjects();
+    return;
+  }
 
-  await renderProjects();
+  const imageButton = event.target.closest("[data-image-save]");
+  if (!imageButton) return;
+
+  const projectId = Number(imageButton.dataset.imageSave);
+  const imageInput = projectList.querySelector(
+    `[data-image-input="${projectId}"]`
+  );
+  const [file] = imageInput.files;
+  if (!file) {
+    imageInput.focus();
+    return;
+  }
+
+  try {
+    imageButton.disabled = true;
+    const image = await imageToPayload(file);
+    await apiRequest("api/update_project_image.php", {
+      method: "POST",
+      body: JSON.stringify({ id: projectId, image }),
+    });
+    await renderProjects();
+  } catch (error) {
+    window.alert(error.message);
+  } finally {
+    imageButton.disabled = false;
+  }
 });
 
 resetButton.addEventListener("click", async () => {

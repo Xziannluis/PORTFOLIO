@@ -15,7 +15,13 @@ if ($id <= 0) {
     json_response(['ok' => false, 'message' => 'Valid project id is required.'], 422);
 }
 
-$stmt = db()->prepare('DELETE FROM projects WHERE id = ?');
+$pdo = db();
+$lookup = $pdo->prepare('SELECT image_url FROM projects WHERE id = ?');
+$lookup->execute([$id]);
+$imageUrl = $lookup->fetchColumn();
+
+$stmt = $pdo->prepare('DELETE FROM projects WHERE id = ?');
 $stmt->execute([$id]);
+remove_project_image(is_string($imageUrl) ? $imageUrl : null);
 
 json_response(['ok' => true]);

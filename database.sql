@@ -11,9 +11,12 @@ CREATE TABLE IF NOT EXISTS projects (
   description TEXT NOT NULL,
   categories VARCHAR(255) NOT NULL,
   tags VARCHAR(255) NOT NULL,
+  image_url TEXT,
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
+
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS image_url TEXT;
 
 INSERT INTO admins (username, password_hash)
 VALUES ('admin', '$2y$10$RYw6GDSUiV9CxZQrWd3xb.pTzFQRnZFEqptPzBZg2/f502sf.MEhq')

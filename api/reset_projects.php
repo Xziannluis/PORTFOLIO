@@ -40,6 +40,7 @@ $projects = [
 ];
 
 $pdo = db();
+$oldImages = $pdo->query('SELECT image_url FROM projects')->fetchAll(PDO::FETCH_COLUMN);
 $pdo->beginTransaction();
 $pdo->exec('DELETE FROM projects');
 
@@ -52,5 +53,9 @@ foreach ($projects as $project) {
 }
 
 $pdo->commit();
+
+foreach ($oldImages as $imageUrl) {
+    remove_project_image(is_string($imageUrl) ? $imageUrl : null);
+}
 
 json_response(['ok' => true]);

@@ -67,6 +67,17 @@
               <textarea name="description" rows="4" placeholder="Short project summary" required></textarea>
             </label>
             <label>
+              <span>Project screenshot</span>
+              <input
+                type="file"
+                name="image"
+                id="project-image"
+                accept="image/png,image/jpeg,image/webp"
+              />
+              <small class="admin-muted">Optional. PNG, JPG, or WebP; maximum 3 MB.</small>
+            </label>
+            <img class="admin-image-preview is-hidden" id="project-image-preview" alt="Selected project screenshot preview" />
+            <label>
               <span>Categories</span>
               <input type="text" name="categories" placeholder="web, database, ui" required />
             </label>
@@ -76,6 +87,7 @@
             </label>
             <button class="btn primary" type="submit">Add project</button>
             <button class="btn secondary" type="button" id="reset-projects">Reset defaults</button>
+            <p class="form-status" role="status" aria-live="polite"></p>
           </form>
 
           <div class="admin-panel">

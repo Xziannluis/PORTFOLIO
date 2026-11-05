@@ -27,6 +27,12 @@
   force = true
 
 [[redirects]]
+  from = "/api/project-image.php"
+  to = "/.netlify/functions/admin-project-image"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/api/create_project.php"
   to = "/.netlify/functions/admin-create-project"
   status = 200
@@ -35,6 +41,12 @@
 [[redirects]]
   from = "/api/delete_project.php"
   to = "/.netlify/functions/admin-delete-project"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/api/update_project_image.php"
+  to = "/.netlify/functions/admin-update-project-image"
   status = 200
   force = true
 

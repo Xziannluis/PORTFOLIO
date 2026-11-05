@@ -11,9 +11,15 @@ The existing `/api/*.php` URLs are rewritten to that function.
    `node -e "console.log(require('node:crypto').randomBytes(32).toString('hex'))"`.
    Do not use the database password for this value.
 3. Ensure the Neon database schema matches `database.sql`. Run that SQL in the
-   Neon SQL Editor if the tables are not already present.
+   Neon SQL Editor after deploying schema updates. It safely adds the
+   `projects.image_url` column to an existing database.
 4. Deploy the site again. Netlify installs the dependencies from `package.json`
    and publishes the function and rewrites.
+
+Project screenshots can be uploaded for new or existing projects from the admin
+page as PNG, JPG, or WebP files up to 3 MB. Netlify stores uploads in the
+persistent `portfolio-project-images` Blobs store; no extra environment variable
+is needed.
 
 If the API reports a server error after deployment, open **Netlify > Functions >
 admin-login > Logs** and inspect the failed invocation. A missing environment

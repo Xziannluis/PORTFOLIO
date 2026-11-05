@@ -528,6 +528,15 @@ main {
   transition: 220ms ease;
 }
 
+.project-card-image {
+  width: calc(100% + 44px);
+  max-height: 220px;
+  margin: -22px -22px 18px;
+  aspect-ratio: 16 / 9;
+  border-bottom: 1px solid var(--line);
+  object-fit: cover;
+}
+
 .project-card::before {
   position: absolute;
   top: 0;
@@ -578,6 +587,10 @@ main {
 .project-card h3 {
   margin: 42px 0 0;
   font-size: 1.55rem;
+}
+
+.project-card.has-image h3 {
+  margin-top: 18px;
 }
 
 .tags {
@@ -835,6 +848,37 @@ main {
 .admin-form input,
 .admin-form textarea {
   padding: 10px 12px;
+}
+
+.admin-form input[type="file"] {
+  padding: 9px;
+}
+
+.admin-image-preview,
+.admin-project-image {
+  width: 100%;
+  max-height: 220px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  object-fit: cover;
+}
+
+.admin-image-preview {
+  aspect-ratio: 16 / 9;
+}
+
+.admin-project-image {
+  margin-top: 12px;
+  aspect-ratio: 16 / 9;
+}
+
+.admin-project-image-upload {
+  margin-top: 14px;
+  font-size: 0.9rem;
+}
+
+.admin-project-item .btn.secondary {
+  margin-top: 10px;
 }
 
 .admin-form .btn {

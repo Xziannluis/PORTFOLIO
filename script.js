@@ -106,7 +106,12 @@ const renderProjects = async () => {
         const number = String(index + 1).padStart(2, "0");
 
         return `
-          <article class="project-card reveal" data-category="${escapeHtml(categories)}">
+          <article class="project-card reveal${project.image_url ? " has-image" : ""}" data-category="${escapeHtml(categories)}">
+            ${
+              project.image_url
+                ? `<img class="project-card-image" src="${escapeHtml(project.image_url)}" alt="${escapeHtml(project.title)} project screenshot" loading="lazy" />`
+                : ""
+            }
             <div class="project-top">
               <span>${number}</span>
               <a href="#contact" aria-label="Ask about ${escapeHtml(project.title)}">&nearr;</a>

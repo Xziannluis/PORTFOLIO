@@ -106,5 +106,68 @@ function project_from_row(array $row): array
         'description' => $row['description'],
         'categories' => split_list($row['categories']),
         'tags' => split_list($row['tags']),
+        'image_url' => $row['image_url'] ?? null,
     ];
+}
+
+function save_project_image(?array $image): ?string
+{
+    if ($image === null) {
+        return null;
+    }
+
+    $mimeTypes = [
+        'image/png' => 'png',
+        'image/jpeg' => 'jpg',
+        'image/webp' => 'webp',
+    ];
+    $mimeType = $image['mimeType'] ?? '';
+    $base64 = $image['base64'] ?? '';
+    if (!isset($mimeTypes[$mimeType]) || !is_string($base64) || $base64 === '') {
+        json_response(['ok' => false, 'message' => 'Choose a valid PNG, JPG, or WebP project image.'], 422);
+    }
+
+    if (strlen($base64) > 4 * 1024 * 1024) {
+        json_response(['ok' => false, 'message' => 'Project images must be 3 MB or smaller.'], 422);
+    }
+
+    $bytes = base64_decode($base64, true);
+    if ($bytes === false || strlen($bytes) > 3 * 1024 * 1024) {
+        json_response(['ok' => false, 'message' => 'Project images must be valid files no larger than 3 MB.'], 422);
+    }
+
+    $imageInfo = getimagesizefromstring($bytes);
+    if ($imageInfo === false || $imageInfo['mime'] !== $mimeType) {
+        json_response(['ok' => false, 'message' => 'The selected file contents do not match its image type.'], 422);
+    }
+
+    $directory = dirname(__DIR__) . '/assets/project-uploads';
+    if (!is_dir($directory) && !mkdir($directory, 0775, true) && !is_dir($directory)) {
+        throw new RuntimeException('Unable to create the project image directory.');
+    }
+
+    $filename = bin2hex(random_bytes(16)) . '.' . $mimeTypes[$mimeType];
+    if (file_put_contents($directory . '/' . $filename, $bytes, LOCK_EX) === false) {
+        throw new RuntimeException('Unable to save the project image.');
+    }
+
+    return 'assets/project-uploads/' . $filename;
+}
+
+function remove_project_image(?string $imageUrl): void
+{
+    $prefix = 'assets/project-uploads/';
+    if ($imageUrl === null || !str_starts_with($imageUrl, $prefix)) {
+        return;
+    }
+
+    $filename = substr($imageUrl, strlen($prefix));
+    if (!preg_match('/^[a-f0-9]{32}\.(png|jpg|webp)$/', $filename)) {
+        return;
+    }
+
+    $path = dirname(__DIR__) . '/' . $prefix . $filename;
+    if (is_file($path) && !unlink($path)) {
+        throw new RuntimeException('Unable to remove the project image.');
+    }
 }

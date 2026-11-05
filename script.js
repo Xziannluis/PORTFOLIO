@@ -176,9 +176,30 @@ filters.forEach((button) => {
   });
 });
 
-contactForm?.addEventListener("submit", (event) => {
+contactForm?.addEventListener("submit", async (event) => {
   event.preventDefault();
   const status = contactForm.querySelector(".form-status");
-  contactForm.reset();
-  status.textContent = "Message preview sent. Connect this form to your backend when ready.";
+  const submitButton = contactForm.querySelector('button[type="submit"]');
+  submitButton.disabled = true;
+  status.textContent = "Sending your message...";
+
+  try {
+    const body = new URLSearchParams(new FormData(contactForm));
+    const response = await fetch("/", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: body.toString(),
+    });
+
+    if (!response.ok) {
+      throw new Error("Your message could not be sent. Please try again.");
+    }
+
+    contactForm.reset();
+    status.textContent = "Thanks! Your message has been sent.";
+  } catch (error) {
+    status.textContent = error.message;
+  } finally {
+    submitButton.disabled = false;
+  }
 });

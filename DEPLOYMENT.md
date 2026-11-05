@@ -22,6 +22,10 @@ page as PNG, JPG, or WebP files up to 3 MB. Netlify stores these files in the
 Neon database; no separate blob-storage account or environment variable is
 needed.
 
+The contact form uses Netlify Forms. After deploying, open the site's
+**Forms** page in Netlify to confirm the `contact` form was detected. Configure
+a form submission notification there if you want messages emailed to you.
+
 If the API reports a server error after deployment, open **Netlify > Functions >
 admin-login > Logs** and inspect the failed invocation. A missing environment
 variable is reported directly by the login form; database connection or schema

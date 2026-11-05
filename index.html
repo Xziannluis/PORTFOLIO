@@ -201,7 +201,21 @@
             </div>
           </div>
 
-          <form class="contact-form reveal">
+          <form
+            class="contact-form reveal"
+            name="contact"
+            method="POST"
+            action="/"
+            data-netlify="true"
+            data-netlify-honeypot="bot-field"
+          >
+            <input type="hidden" name="form-name" value="contact" />
+            <p class="is-hidden" aria-hidden="true">
+              <label>
+                Leave this field empty:
+                <input name="bot-field" tabindex="-1" autocomplete="off" />
+              </label>
+            </p>
             <label>
               <span>Name</span>
               <input type="text" name="name" placeholder="Your name" required />

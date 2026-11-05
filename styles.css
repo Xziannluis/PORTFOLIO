@@ -530,12 +530,9 @@ main {
 
 .project-card-image {
   width: calc(100% + 44px);
-  max-height: 220px;
+  height: auto;
   margin: -22px -22px 18px;
-  aspect-ratio: 16 / 9;
   border-bottom: 1px solid var(--line);
-  background: rgba(0, 0, 0, 0.3);
-  object-fit: contain;
 }
 
 .project-card::before {
@@ -858,20 +855,13 @@ main {
 .admin-image-preview,
 .admin-project-image {
   width: 100%;
-  max-height: 220px;
+  height: auto;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  background: rgba(0, 0, 0, 0.3);
-  object-fit: contain;
-}
-
-.admin-image-preview {
-  aspect-ratio: 16 / 9;
 }
 
 .admin-project-image {
   margin-top: 12px;
-  aspect-ratio: 16 / 9;
 }
 
 .admin-project-image-upload {

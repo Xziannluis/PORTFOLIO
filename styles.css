@@ -534,7 +534,8 @@ main {
   margin: -22px -22px 18px;
   aspect-ratio: 16 / 9;
   border-bottom: 1px solid var(--line);
-  object-fit: cover;
+  background: rgba(0, 0, 0, 0.3);
+  object-fit: contain;
 }
 
 .project-card::before {
@@ -860,7 +861,8 @@ main {
   max-height: 220px;
   border: 1px solid var(--line);
   border-radius: var(--radius);
-  object-fit: cover;
+  background: rgba(0, 0, 0, 0.3);
+  object-fit: contain;
 }
 
 .admin-image-preview {

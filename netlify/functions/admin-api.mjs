@@ -1,14 +1,10 @@
-import { createHmac, randomUUID, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import bcrypt from "bcryptjs";
 import { neon } from "@neondatabase/serverless";
-import { getStore } from "@netlify/blobs";
 
 const COOKIE_NAME = "portfolio_admin";
 const SESSION_DURATION_SECONDS = 12 * 60 * 60;
 const MAX_PROJECT_IMAGE_BYTES = 3 * 1024 * 1024;
-const PROJECT_IMAGE_KEY_PATTERN =
-  /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(png|jpg|webp)$/;
-const getImageStore = () => getStore("portfolio-project-images");
 
 const defaultProjects = [
   [
@@ -149,7 +145,9 @@ const projectFromRow = (row) => ({
   description: row.description,
   categories: splitList(row.categories),
   tags: splitList(row.tags),
-  image_url: row.image_url || null,
+  image_url:
+    row.image_url ||
+    (row.has_image ? `/api/project-image.php?id=${Number(row.id)}` : null),
 });
 
 const parseProjectImage = (image) => {
@@ -209,21 +207,9 @@ const parseProjectImage = (image) => {
   }
 
   return {
-    key: `${randomUUID()}.${extension}`,
     mimeType: image.mimeType,
-    bytes,
+    base64: image.base64,
   };
-};
-
-const imageKeyFromUrl = (imageUrl) => {
-  if (typeof imageUrl !== "string") return null;
-  try {
-    const url = new URL(imageUrl, "https://portfolio.invalid");
-    const key = url.searchParams.get("key");
-    return key && PROJECT_IMAGE_KEY_PATTERN.test(key) ? key : null;
-  } catch {
-    return null;
-  }
 };
 
 const requirePost = (event) =>
@@ -256,27 +242,29 @@ export const handler = async (event) => {
         });
       }
 
-      const key = event.queryStringParameters?.key;
-      if (typeof key !== "string" || !PROJECT_IMAGE_KEY_PATTERN.test(key)) {
+      const id = Number(event.queryStringParameters?.id);
+      if (!Number.isSafeInteger(id) || id <= 0) {
         return response({ ok: false, message: "Project image not found." }, 404);
       }
-      const data = await getImageStore().get(key, { type: "arrayBuffer" });
-      if (!data) {
+      const sql = getSql();
+      const [image] = await sql`
+        SELECT
+          replace(encode(image_data, 'base64'), chr(10), '') AS base64,
+          image_mime_type
+        FROM projects
+        WHERE id = ${id} AND image_data IS NOT NULL
+      `;
+      if (!image?.base64) {
         return response({ ok: false, message: "Project image not found." }, 404);
       }
-      const contentType = key.endsWith(".png")
-        ? "image/png"
-        : key.endsWith(".webp")
-          ? "image/webp"
-          : "image/jpeg";
       return {
         statusCode: 200,
         headers: {
-          "Content-Type": contentType,
-          "Cache-Control": "public, max-age=31536000, immutable",
+          "Content-Type": image.image_mime_type,
+          "Cache-Control": "public, max-age=3600",
           "X-Content-Type-Options": "nosniff",
         },
-        body: Buffer.from(data).toString("base64"),
+        body: image.base64,
         isBase64Encoded: true,
       };
     }
@@ -290,7 +278,9 @@ export const handler = async (event) => {
 
       const sql = getSql();
       const rows = await sql`
-        SELECT id, title, description, categories, tags, image_url
+        SELECT
+          id, title, description, categories, tags, image_url,
+          image_data IS NOT NULL AS has_image
         FROM projects
         ORDER BY sort_order ASC, id ASC
       `;
@@ -408,41 +398,26 @@ export const handler = async (event) => {
       }
 
       const sql = getSql();
-      const imageStore = image ? getImageStore() : null;
-      if (image) {
-        await imageStore.set(
-          image.key,
-          new Blob([image.bytes], { type: image.mimeType }),
-          { metadata: { contentType: image.mimeType } }
-        );
-      }
-
-      try {
-        const [order] = await sql`
-          SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
-          FROM projects
-        `;
-        const imageUrl = image
-          ? `/api/project-image.php?key=${encodeURIComponent(image.key)}`
-          : null;
-        const [project] = await sql`
-          INSERT INTO projects
-            (title, description, categories, tags, image_url, sort_order)
-          VALUES (
-            ${title},
-            ${description},
-            ${categories.length ? categories.join(",") : "web"},
-            ${tags.join(",")},
-            ${imageUrl},
-            ${Number(order.next_order)}
-          )
-          RETURNING id
-        `;
-        return response({ ok: true, id: Number(project.id) });
-      } catch (error) {
-        if (image) await imageStore.delete(image.key);
-        throw error;
-      }
+      const [order] = await sql`
+        SELECT COALESCE(MAX(sort_order), 0) + 1 AS next_order
+        FROM projects
+      `;
+      const [project] = await sql`
+        INSERT INTO projects
+          (title, description, categories, tags, image_url, image_data, image_mime_type, sort_order)
+        VALUES (
+          ${title},
+          ${description},
+          ${categories.length ? categories.join(",") : "web"},
+          ${tags.join(",")},
+          NULL,
+          decode(${image ? image.base64 : null}, 'base64'),
+          ${image ? image.mimeType : null},
+          ${Number(order.next_order)}
+        )
+        RETURNING id
+      `;
+      return response({ ok: true, id: Number(project.id) });
     }
 
     if (endpoint === "delete_project") {
@@ -458,12 +433,7 @@ export const handler = async (event) => {
       }
 
       const sql = getSql();
-      const [project] = await sql`
-        SELECT image_url FROM projects WHERE id = ${id}
-      `;
       await sql`DELETE FROM projects WHERE id = ${id}`;
-      const imageKey = imageKeyFromUrl(project?.image_url);
-      if (imageKey) await getImageStore().delete(imageKey);
       return response({ ok: true });
     }
 
@@ -487,38 +457,18 @@ export const handler = async (event) => {
       }
 
       const sql = getSql();
-      const [project] = await sql`
-        SELECT image_url FROM projects WHERE id = ${id}
-      `;
+      const [project] = await sql`SELECT id FROM projects WHERE id = ${id}`;
       if (!project) {
         return response({ ok: false, message: "Project not found." }, 404);
       }
 
-      const imageStore = getImageStore();
-      const oldImageKey = imageKeyFromUrl(project.image_url);
-      if (image) {
-        await imageStore.set(
-          image.key,
-          new Blob([image.bytes], { type: image.mimeType }),
-          { metadata: { contentType: image.mimeType } }
-        );
-      }
-
-      try {
-        const imageUrl = image
-          ? `/api/project-image.php?key=${encodeURIComponent(image.key)}`
-          : null;
-        await sql`
-          UPDATE projects
-          SET image_url = ${imageUrl}
-          WHERE id = ${id}
-        `;
-      } catch (error) {
-        if (image) await imageStore.delete(image.key);
-        throw error;
-      }
-
-      if (oldImageKey) await imageStore.delete(oldImageKey);
+      await sql`
+        UPDATE projects
+        SET image_url = NULL,
+            image_data = decode(${image ? image.base64 : null}, 'base64'),
+            image_mime_type = ${image ? image.mimeType : null}
+        WHERE id = ${id}
+      `;
       return response({ ok: true });
     }
 
@@ -529,24 +479,18 @@ export const handler = async (event) => {
       if (auth.error) return auth.error;
 
       const sql = getSql();
-      const oldProjects = await sql`SELECT image_url FROM projects`;
       await sql.transaction([
         sql`DELETE FROM projects`,
         ...defaultProjects.map(
           ([title, description, categories, tags, sortOrder]) =>
             sql`
               INSERT INTO projects
-                (title, description, categories, tags, sort_order)
-              VALUES
-                (${title}, ${description}, ${categories}, ${tags}, ${sortOrder})
-            `
+                    (title, description, categories, tags, image_url, image_data, image_mime_type, sort_order)
+                  VALUES
+                    (${title}, ${description}, ${categories}, ${tags}, NULL, NULL, NULL, ${sortOrder})
+                `
         ),
       ]);
-      const imageStore = getImageStore();
-      for (const project of oldProjects) {
-        const imageKey = imageKeyFromUrl(project.image_url);
-        if (imageKey) await imageStore.delete(imageKey);
-      }
       return response({ ok: true });
     }
 
@@ -554,9 +498,13 @@ export const handler = async (event) => {
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
+    const errorCode =
+      typeof error === "object" && error !== null && "code" in error
+        ? String(error.code)
+        : "";
     console.error(
       "Admin API request failed:",
-      errorMessage
+      errorCode ? `${errorCode}: ${errorMessage}` : errorMessage
     );
 
     if (errorMessage === "Missing NEON_DATABASE_URL.") {
@@ -576,6 +524,22 @@ export const handler = async (event) => {
           ok: false,
           message:
             "Server setup incomplete: set ADMIN_SESSION_SECRET to a random value of at least 32 characters, then redeploy.",
+        },
+        500
+      );
+    }
+
+    if (
+      errorCode === "42703" ||
+      /column ["']?image_(?:url|data|mime_type)["']? does not exist/i.test(
+        errorMessage
+      )
+    ) {
+      return response(
+        {
+          ok: false,
+          message:
+            "The database needs the project image columns. In Neon SQL Editor, run: ALTER TABLE projects ADD COLUMN IF NOT EXISTS image_url TEXT; ALTER TABLE projects ADD COLUMN IF NOT EXISTS image_data BYTEA; ALTER TABLE projects ADD COLUMN IF NOT EXISTS image_mime_type VARCHAR(32);",
         },
         500
       );

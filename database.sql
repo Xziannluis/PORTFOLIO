@@ -12,11 +12,15 @@ CREATE TABLE IF NOT EXISTS projects (
   categories VARCHAR(255) NOT NULL,
   tags VARCHAR(255) NOT NULL,
   image_url TEXT,
+  image_data BYTEA,
+  image_mime_type VARCHAR(32),
   sort_order INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
 ALTER TABLE projects ADD COLUMN IF NOT EXISTS image_url TEXT;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS image_data BYTEA;
+ALTER TABLE projects ADD COLUMN IF NOT EXISTS image_mime_type VARCHAR(32);
 
 INSERT INTO admins (username, password_hash)
 VALUES ('admin', '$2y$10$RYw6GDSUiV9CxZQrWd3xb.pTzFQRnZFEqptPzBZg2/f502sf.MEhq')

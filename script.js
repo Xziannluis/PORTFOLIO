@@ -8,6 +8,7 @@ const escapeHtml = (value) =>
 
 const projectGrid = document.querySelector("#project-grid");
 const projectCount = document.querySelector("#project-count");
+const completedBuildCount = document.querySelector("#completed-build-count");
 const menuToggle = document.querySelector(".menu-toggle");
 const mobileNav = document.querySelector(".mobile-nav");
 const navLinks = document.querySelectorAll(".desktop-nav a[href^='#'], .mobile-nav a[href^='#']");
@@ -88,10 +89,11 @@ const renderProjects = async () => {
 
   try {
     const projects = await fetchProjects();
-    if (projectCount) {
-      projectCount.dataset.count = String(projects.length);
-      projectCount.textContent = "0";
-    }
+    [projectCount, completedBuildCount].forEach((counter) => {
+      if (!counter) return;
+      counter.dataset.count = String(projects.length);
+      counter.textContent = "0";
+    });
 
     if (!projects.length) {
       projectGrid.innerHTML = `<p class="admin-empty">No projects uploaded yet.</p>`;
